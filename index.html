@@ -454,13 +454,13 @@
           <button @click="showSettingsModal = false" class="text-earth-bark text-xl font-bold">✕</button>
         </div>
 
-        <!-- 傳連結共享編輯 (短網址化) -->
+        <!-- 傳連結共享編輯 -->
         <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-3.5 rounded-3xl border-2 border-ginkgo-300 space-y-2.5 shadow-sm">
           <div class="flex items-center gap-2">
             <span class="text-lg">🔗</span>
             <div>
               <h4 class="text-xs font-black text-earth-night">傳連結共享編輯 (自動縮短網址)</h4>
-              <p class="text-[11px] text-earth-caramel font-bold">免伺服器、產生精簡短網址傳給旅伴</p>
+              <p class="text-[11px] text-earth-caramel font-bold">產生精簡短網址傳給旅伴，永不截斷</p>
             </div>
           </div>
           
@@ -573,7 +573,7 @@
         </div>
         <input type="text" v-model="newShoppingItem.store" placeholder="購買門市 (如：松本清、唐吉訶德)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
         <div>
-          <label class="text-[11px] font-bold text-earth-caramel block mb-1">商品照片 (僅限本地瀏覽，不會上傳以確保快速傳送)</label>
+          <label class="text-[11px] font-bold text-earth-caramel block mb-1">商品照片 (僅限本機瀏覽，不隨網址同步)</label>
           <input type="file" accept="image/*" @change="handleShoppingImageUpload" class="text-xs text-earth-bark" />
         </div>
         <div class="flex gap-2 pt-1">
@@ -785,7 +785,7 @@
           }
         };
 
-        // 超精簡化壓縮演算法 (隔離圖片，消除冗長鍵名)
+        // 縮小體積壓縮邏輯
         const getShareableUrl = () => {
           const minimalDays = tripDays.value.map(d => ({
             d: d.dateFormatted,
@@ -822,14 +822,12 @@
           return `${window.location.origin}${window.location.pathname}#t=${compressed}`;
         };
 
-        // 縮短網址核心邏輯
         const generateAndCopyShareLink = async () => {
           isGeneratingLink.value = true;
           const fullUrl = getShareableUrl();
           let finalShareUrl = fullUrl;
 
           try {
-            // 調用公開微型短網址服務 (TinyURL 免費 API)
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 4000);
             const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(fullUrl)}`, {
@@ -843,7 +841,7 @@
               }
             }
           } catch (e) {
-            console.warn('短網址服務連線備援，改複製精簡版原連結');
+            console.warn('短網址服務連線備援');
           } finally {
             isGeneratingLink.value = false;
           }
@@ -866,16 +864,23 @@
           }
         };
 
+        // 雙向相容解析網址 (支援 #trip= 與 #t=)
         const loadSharedDataFromUrl = () => {
           const hash = window.location.hash;
           if (hash.includes('#t=') || hash.includes('#trip=')) {
             try {
-              const compressed = hash.includes('#t=') ? hash.replace('#t=', '') : hash.replace('#trip=', '');
+              let compressed = '';
+              if (hash.includes('#t=')) {
+                compressed = hash.substring(hash.indexOf('#t=') + 3);
+              } else if (hash.includes('#trip=')) {
+                compressed = hash.substring(hash.indexOf('#trip=') + 6);
+              }
+
               const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
               if (decompressed) {
                 const parsed = JSON.parse(decompressed);
 
-                // 解壓超精簡結構
+                // 情況 1: 新版精簡格式
                 if (parsed.t) tripConfig.value.tripName = parsed.t;
                 if (parsed.s && parsed.e) dateSettings.value = { startDate: parsed.s, endDate: parsed.e };
                 if (parsed.i) currentAppIcon.value = parsed.i;
@@ -919,9 +924,12 @@
                   }));
                 }
 
-                // 兼容舊版長結構
-                if (parsed.days) tripDays.value = parsed.days;
-                if (parsed.c) tripConfig.value = parsed.c;
+                // 情況 2: 舊版完整格式 (向下完全相容)
+                if (parsed.c && parsed.c.tripName) tripConfig.value = parsed.c;
+                if (parsed.d && parsed.d.startDate) dateSettings.value = parsed.d;
+                if (parsed.days && Array.isArray(parsed.days)) tripDays.value = parsed.days;
+                if (parsed.s && Array.isArray(parsed.s)) shoppingList.value = parsed.s;
+                if (parsed.e && Array.isArray(parsed.e)) expenses.value = parsed.e;
 
                 saveAllToLocalStorage();
                 history.replaceState(null, '', window.location.pathname);
@@ -1365,7 +1373,6 @@
           animate();
         };
 
-        // 監聽天數切換
         watch(activeDayIndex, () => {
           selectedSpotIndex.value = 0;
           mapMode.value = 'all';
@@ -1376,7 +1383,6 @@
           }
         });
 
-        // 深度監聽自動持久化存儲
         watch([tripDays, shoppingList, expenses, tripConfig, currentAppIcon], () => {
           saveAllToLocalStorage();
         }, { deep: true });

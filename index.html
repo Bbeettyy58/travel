@@ -72,8 +72,9 @@
     .safe-top-padding {
       padding-top: max(var(--sat), 52px);
     }
+    /* 增加足夠底部邊距，確保任何按鈕都不會被 bottom nav 遮蔽 */
     .compact-bottom-padding {
-      padding-bottom: calc(56px + max(var(--sab), 8px));
+      padding-bottom: calc(90px + max(var(--sab), 12px));
     }
     .compact-nav-padding {
       padding-bottom: max(var(--sab), 6px);
@@ -164,7 +165,7 @@
     <main class="flex-1 max-w-lg w-full mx-auto px-4 py-3 compact-bottom-padding z-10">
       
       <!-- TAB 1: 每日行程 -->
-      <section v-show="activeTab === 'itinerary'" class="space-y-3.5">
+      <section v-show="activeTab === 'itinerary'" class="space-y-4">
         <div class="bg-gradient-to-r from-earth-sand to-earth-clay/50 rounded-3xl p-3.5 border border-earth-clay flex items-center justify-between shadow-sm">
           <div class="flex-1 min-w-0 pr-2">
             <span class="text-xs font-bold text-earth-caramel tracking-wider uppercase">Day {{ activeDayIndex + 1 }} 主題</span>
@@ -213,13 +214,20 @@
             </div>
           </div>
 
-          <div v-if="!currentDay.spots || currentDay.spots.length === 0" class="text-center py-8 bg-white/60 rounded-3xl border border-dashed border-earth-clay text-earth-caramel text-xs font-bold">
+          <div v-if="!currentDay.spots || currentDay.spots.length === 0" class="text-center py-8 bg-white/70 rounded-3xl border border-dashed border-[#A66B38] text-earth-caramel text-xs font-bold">
             今日尚無安排行程，點擊下方新增站點 🍂
           </div>
 
-          <button @click="openAddSpotModal" class="w-full py-3 rounded-2xl bg-earth-sand/70 hover:bg-earth-sand border-2 border-dashed border-earth-caramel/50 text-earth-caramel font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all">
-            <span>＋ 新增站點至 Day {{ activeDayIndex + 1 }}</span>
-          </button>
+          <!-- 增強可見度、高對比的虛線新增站點按鈕 -->
+          <div class="pt-2 pb-4">
+            <button 
+              @click="openAddSpotModal" 
+              class="w-full py-4 px-4 rounded-3xl bg-[#F6E0B3]/80 hover:bg-[#EECA82] border-2 border-dashed border-[#A66B38] text-[#7A4B24] font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm cursor-pointer"
+            >
+              <span class="text-base bg-white w-6 h-6 rounded-full flex items-center justify-center shadow-xs">＋</span>
+              <span>新增站點至 Day {{ activeDayIndex + 1 }}</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -256,295 +264,3 @@
             </button>
           </div>
         </div>
-
-        <div v-if="activeMapSpot" class="bg-white rounded-2xl p-3 border border-earth-clay shadow-sm flex items-center justify-between">
-          <div class="min-w-0 flex-1 pr-2">
-            <span class="text-[10px] font-bold bg-ginkgo-100 text-ginkgo-800 px-2 py-0.5 rounded-md">站點 {{ selectedSpotIndex + 1 }}</span>
-            <h4 class="text-sm font-black text-earth-night mt-0.5 truncate">{{ activeMapSpot.name }}</h4>
-            <p class="text-xs text-earth-caramel font-medium truncate">{{ activeMapSpot.notes || '暫無額外備註' }}</p>
-          </div>
-          <button @click="openGoogleMapsApp(activeMapSpot.name)" class="px-3 py-1.5 bg-earth-sand rounded-xl text-xs font-bold text-earth-bark border border-earth-clay active:scale-95 flex-shrink-0">
-            路線規劃
-          </button>
-        </div>
-      </section>
-
-      <!-- TAB 3: 購物清單 -->
-      <section v-show="activeTab === 'shopping'" class="space-y-3.5">
-        <div class="bg-gradient-to-br from-ginkgo-400 to-ginkgo-500 rounded-3xl p-3.5 text-white shadow-md">
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="text-xs font-bold text-amber-100">採買完成度</span>
-            <span class="text-xs font-black bg-white/20 px-2 py-0.5 rounded-lg">{{ shoppingProgress }}%</span>
-          </div>
-          <div class="w-full bg-black/15 h-2 rounded-full overflow-hidden mb-2.5">
-            <div class="bg-white h-full transition-all duration-300 rounded-full" :style="{ width: shoppingProgress + '%' }"></div>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-white/20 text-xs">
-            <span>預算總計：<strong class="text-sm">{{ formatMoney(shoppingTotalJPY) }}</strong> JPY</span>
-            <span class="text-amber-100">約 NT$ {{ formatMoney(Math.round(shoppingTotalJPY * currentExchangeRate)) }}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex gap-1 bg-earth-sand p-1 rounded-xl border border-earth-clay">
-            <button 
-              v-for="filter in ['all', 'pending', 'bought']" 
-              :key="filter"
-              @click="shoppingFilter = filter"
-              class="px-2.5 py-1 rounded-lg text-xs font-black transition-all"
-              :class="shoppingFilter === filter ? 'bg-white text-earth-night shadow-sm' : 'text-earth-bark/70'"
-            >
-              {{ filter === 'all' ? '全部' : filter === 'pending' ? '待買' : '已買' }}
-            </button>
-          </div>
-          <button @click="openAddShoppingModal" class="px-3 py-1.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl text-xs font-black shadow-sm active:scale-95">
-            ＋ 新增商品
-          </button>
-        </div>
-
-        <div class="space-y-2.5">
-          <div 
-            v-for="item in filteredShoppingList" 
-            :key="item.id"
-            class="bg-white rounded-2xl p-3 border border-earth-clay/80 shadow-sm flex items-center gap-3 transition-all"
-            :class="{ 'opacity-60 bg-earth-washi': item.bought }"
-          >
-            <div 
-              @click="openLightbox(item.image)"
-              class="w-14 h-14 rounded-xl bg-earth-sand border border-earth-clay overflow-hidden flex-shrink-0 cursor-pointer flex items-center justify-center text-lg relative"
-            >
-              <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
-              <span v-else>🛍️</span>
-            </div>
-
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-earth-sand text-earth-caramel flex-shrink-0">{{ item.category }}</span>
-                <h4 class="text-xs font-black text-earth-night truncate" :class="{ 'line-through': item.bought }">{{ item.name }}</h4>
-              </div>
-              <div class="flex items-center gap-2 mt-1 text-xs text-earth-bark font-bold">
-                <span>¥{{ formatMoney(item.price) }}</span>
-                <span class="text-earth-caramel text-[11px] font-medium">約 NT${{ formatMoney(Math.round(item.price * currentExchangeRate)) }}</span>
-              </div>
-              <p v-if="item.store" class="text-[10px] text-earth-caramel truncate mt-0.5">📍 {{ item.store }}</p>
-            </div>
-
-            <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
-              <button 
-                @click="toggleShoppingItem(item)"
-                class="w-6 h-6 rounded-lg flex items-center justify-center border transition-all active:scale-90"
-                :class="item.bought ? 'bg-ginkgo-400 border-ginkgo-500 text-white' : 'border-earth-clay bg-earth-sand text-transparent'"
-              >
-                ✓
-              </button>
-              <button @click="deleteShoppingItem(item.id)" class="text-[10px] text-red-400 hover:text-red-600">
-                刪除
-              </button>
-            </div>
-          </div>
-
-          <div v-if="filteredShoppingList.length === 0" class="text-center py-6 text-earth-caramel text-xs font-bold">
-            暫無對應購物清單項目
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 4: 即時匯率與平帳記帳機 -->
-      <section v-show="activeTab === 'expenses'" class="space-y-3.5">
-        <div class="bg-white rounded-3xl p-3.5 border border-earth-clay shadow-sm space-y-2.5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span class="text-xs font-black text-earth-night">即時匯率 (已連線)</span>
-            </div>
-            <button @click="fetchLiveExchangeRate" class="text-xs font-bold text-ginkgo-600 flex items-center gap-1 active:scale-95">
-              <span :class="{ 'animate-spin': isFetchingRate }">🔄</span> 更新時間: {{ lastRateUpdatedTime }}
-            </button>
-          </div>
-
-          <div class="flex items-center justify-between p-2.5 bg-earth-sand/70 rounded-2xl border border-earth-clay/60">
-            <span class="text-xs font-bold text-earth-bark">1 JPY (日圓) 等於</span>
-            <div class="text-right">
-              <span class="text-base font-black text-ginkgo-800">{{ currentExchangeRate }}</span>
-              <span class="text-xs font-bold text-earth-caramel ml-1">TWD</span>
-            </div>
-          </div>
-
-          <div class="pt-1.5 border-t border-earth-sand">
-            <label class="text-[11px] font-bold text-earth-caramel block mb-1">🧮 購物即時換算機 (含稅)</label>
-            <div class="flex gap-2">
-              <input 
-                type="number" 
-                v-model.number="calcJPY" 
-                placeholder="輸入日圓金額" 
-                class="flex-1 bg-earth-washi border border-earth-clay rounded-xl px-3 py-1.5 text-xs font-bold text-earth-night focus:outline-none focus:border-ginkgo-400"
-              />
-              <div class="w-24 bg-ginkgo-50 border border-ginkgo-200 rounded-xl px-2 py-1.5 text-xs font-black text-ginkgo-800 flex items-center justify-center">
-                ≈ ${{ formatMoney(Math.round((calcJPY || 0) * currentExchangeRate)) }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-3xl p-3.5 border border-earth-clay shadow-sm space-y-2.5">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xs font-black text-earth-night">👥 智慧平帳計算 (最少轉帳次數)</h3>
-            <button @click="openAddExpenseModal" class="px-2.5 py-1 bg-ginkgo-400 text-white text-xs font-bold rounded-lg active:scale-95">
-              ＋ 記一筆
-            </button>
-          </div>
-
-          <div v-if="settlementResults.length > 0" class="p-2.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-1">
-            <div v-for="(s, idx) in settlementResults" :key="idx" class="text-xs font-bold text-earth-bark flex items-center justify-between">
-              <span>👤 <strong>{{ s.from }}</strong> 應給 <strong>{{ s.to }}</strong></span>
-              <span class="text-ginkgo-700 font-black">¥{{ formatMoney(s.amount) }} (NT${{ formatMoney(Math.round(s.amount * currentExchangeRate)) }})</span>
-            </div>
-          </div>
-          <div v-else class="text-xs text-earth-caramel text-center py-1.5">
-            目前大家收支完全平衡，無須轉帳 ✨
-          </div>
-
-          <div class="space-y-1.5 pt-1.5 border-t border-earth-sand">
-            <div 
-              v-for="(exp, eIdx) in expenses" 
-              :key="exp.id || eIdx"
-              class="flex items-center justify-between text-xs p-2 rounded-xl bg-earth-washi border border-earth-clay/40"
-            >
-              <div>
-                <span class="font-black text-earth-night">{{ exp.title }}</span>
-                <span class="text-earth-caramel ml-1.5">({{ exp.payer }} 先付)</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="font-black text-ginkgo-800">¥{{ formatMoney(exp.amount) }}</span>
-                <button @click="deleteExpense(eIdx)" class="text-red-400 hover:text-red-600">✕</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- 底部導航列 -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#FBF8F2]/95 backdrop-blur-md border-t border-earth-clay/70 compact-nav-padding pt-1.5 transition-all shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
-      <div class="flex items-center justify-around max-w-md mx-auto px-3">
-        <button 
-          v-for="tab in navTabs" 
-          :key="tab.id"
-          @click="changeTab(tab.id)"
-          class="flex flex-col items-center justify-center py-0.5 transition-all flex-1"
-          :class="activeTab === tab.id ? 'text-ginkgo-700 font-black scale-105' : 'text-earth-bark/60 font-medium'"
-        >
-          <span class="text-lg leading-none mb-0.5">{{ tab.icon }}</span>
-          <span class="text-[10px] leading-tight tracking-tight">{{ tab.name }}</span>
-        </button>
-      </div>
-    </nav>
-
-    <!-- 燈箱大圖 -->
-    <div v-if="lightboxImage" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" @click="lightboxImage = null">
-      <img :src="lightboxImage" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
-      <button class="absolute top-6 right-6 text-white text-2xl font-black bg-white/20 w-10 h-10 rounded-full flex items-center justify-center">✕</button>
-    </div>
-
-    <!-- ⚙️ 設定彈窗 -->
-    <div v-if="showSettingsModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="bg-earth-washi w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 border border-earth-clay shadow-2xl space-y-4 no-scrollbar">
-        <div class="flex items-center justify-between pb-2.5 border-b border-earth-clay">
-          <h3 class="text-base font-black text-earth-night">⚙️ 設定與管理</h3>
-          <button @click="showSettingsModal = false" class="text-earth-bark text-xl font-bold">✕</button>
-        </div>
-
-        <!-- 傳連結共享編輯 -->
-        <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-3.5 rounded-3xl border-2 border-ginkgo-300 space-y-2.5 shadow-sm">
-          <div class="flex items-center gap-2">
-            <span class="text-lg">🔗</span>
-            <div>
-              <h4 class="text-xs font-black text-earth-night">傳連結共享編輯</h4>
-              <p class="text-[11px] text-earth-caramel font-bold">複製專屬行程連結傳給旅伴</p>
-            </div>
-          </div>
-          
-          <p class="text-xs text-earth-bark leading-relaxed">
-            系統會自動壓縮文字行程並複製專屬網址，傳給旅伴打開即可載入！
-          </p>
-
-          <div>
-            <button 
-              @click="generateAndCopyShareLink" 
-              class="w-full py-2.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-            >
-              <span>📋 複製專屬共享連結 (傳給旅伴)</span>
-            </button>
-          </div>
-
-          <div v-if="shareSuccessNotice" class="text-xs text-emerald-800 bg-emerald-100 p-2 rounded-xl text-center font-bold">
-            ✅ 專屬共享連結已複製！可直接貼在 LINE 聊天室！
-          </div>
-        </div>
-
-        <!-- 設為手機桌面 APP -->
-        <div class="bg-white p-3.5 rounded-3xl border border-earth-clay space-y-2.5 shadow-sm">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xs font-black text-earth-night">📲 設為手機桌面 APP</h4>
-            <span class="text-[10px] font-bold bg-ginkgo-100 text-ginkgo-800 px-2 py-0.5 rounded">自訂 ICON</span>
-          </div>
-
-          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            <button 
-              v-for="icon in presetIcons" 
-              :key="icon"
-              @click="setAppIcon(icon)"
-              class="w-9 h-9 rounded-xl flex items-center justify-center text-base border transition-all flex-shrink-0"
-              :class="currentAppIcon === icon ? 'bg-ginkgo-400 text-white border-ginkgo-500 scale-105' : 'bg-earth-sand text-earth-night border-earth-clay'"
-            >
-              {{ icon }}
-            </button>
-          </div>
-
-          <div class="text-[11px] text-earth-bark/80 bg-earth-sand p-2.5 rounded-xl leading-relaxed space-y-1">
-            <p><strong>• iPhone 用戶：</strong>點擊 Safari 底部「<strong>分享 (📤)</strong>」➔ 選擇「<strong>加入主畫面</strong>」。</p>
-            <p><strong>• Android 用戶：</strong>點擊 Chrome 右上角選單 ➔ 選擇「<strong>新增至主螢幕</strong>」。</p>
-          </div>
-        </div>
-
-        <!-- 行程日期區間設定 -->
-        <div class="bg-white p-3.5 rounded-3xl border border-earth-clay space-y-2.5 shadow-sm">
-          <h4 class="text-xs font-black text-earth-night">📅 行程日期區間設定</h4>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <label class="block text-earth-caramel font-bold mb-1">出發日期</label>
-              <input type="date" v-model="dateSettings.startDate" class="w-full bg-earth-sand border border-earth-clay rounded-xl p-2 font-bold text-earth-night text-xs" />
-            </div>
-            <div>
-              <label class="block text-earth-caramel font-bold mb-1">返程日期</label>
-              <input type="date" v-model="dateSettings.endDate" class="w-full bg-earth-sand border border-earth-clay rounded-xl p-2 font-bold text-earth-night text-xs" />
-            </div>
-          </div>
-          <button @click="applyDateRange" class="w-full py-2 bg-earth-sand hover:bg-earth-clay border border-earth-clay text-earth-bark rounded-xl text-xs font-black active:scale-95">
-            🔄 自動重算天數與日本七曜
-          </button>
-        </div>
-
-        <!-- 目的地旅行名稱 -->
-        <div class="bg-white p-3.5 rounded-3xl border border-earth-clay space-y-2 shadow-sm">
-          <h4 class="text-xs font-black text-earth-night">🌍 旅行名稱自訂</h4>
-          <div class="flex gap-2">
-            <input type="text" v-model="tripConfig.tripName" placeholder="例如：東京旅行、首爾散策" class="flex-1 bg-earth-sand border border-earth-clay rounded-xl p-2 text-xs font-bold text-earth-night" />
-            <button @click="showSettingsModal = false" class="px-3.5 bg-ginkgo-400 text-white rounded-xl text-xs font-black">完成</button>
-          </div>
-        </div>
-
-        <!-- 還原示範預設資料 -->
-        <div class="pt-1">
-          <button @click="resetToTemplateData" class="w-full py-2 border border-red-200 text-red-500 rounded-xl text-xs font-bold hover:bg-red-50 active:scale-95">
-            ⚠️ 還原公版示範預設資料
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 新增站點彈窗 -->
-    <div v-if="showAddSpotModal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-3xl p-4 border border-earth-clay shadow-2xl space-y-2.5">
-        <h4 class="text-sm font-black text-earth-night">📍 新增站點至 Day {{ activeDayIndex + 1 }}</h4>
-        <input type="text" v-model="newSpot.name" placeholder="景點名稱 (如：淺草寺、明治神宮)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold text-earth-night border border

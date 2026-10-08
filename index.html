@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- LZ-String 壓縮庫 (純前端網址分享) -->
+  <!-- LZ-String: 壓縮庫 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
   <!-- Vue 3 -->
@@ -36,7 +36,7 @@
               100: '#FBF1DC',
               200: '#F6E0B3',
               300: '#EECA82',
-              400: '#E5A93C', /* 銀杏黃主色 */
+              400: '#E5A93C',
               500: '#D49427',
               600: '#B8781B',
               700: '#925B17',
@@ -102,7 +102,7 @@
 <body class="relative min-h-screen">
   <div id="app" class="relative z-10 flex flex-col min-h-screen">
 
-    <!-- 背景銀杏葉飄落 Canvas -->
+    <!-- 背景飄葉 Canvas -->
     <canvas id="ginkgo-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-40"></canvas>
 
     <!-- 頂部通用橫幅 -->
@@ -454,28 +454,33 @@
           <button @click="showSettingsModal = false" class="text-earth-bark text-xl font-bold">✕</button>
         </div>
 
-        <!-- 傳連結共享編輯 -->
+        <!-- 傳連結共享編輯 (短網址化) -->
         <div class="bg-gradient-to-br from-ginkgo-50 to-amber-100/60 p-3.5 rounded-3xl border-2 border-ginkgo-300 space-y-2.5 shadow-sm">
           <div class="flex items-center gap-2">
             <span class="text-lg">🔗</span>
             <div>
-              <h4 class="text-xs font-black text-earth-night">傳連結共享編輯 (多人同步)</h4>
-              <p class="text-[11px] text-earth-caramel font-bold">免伺服器、點擊直接複製網址</p>
+              <h4 class="text-xs font-black text-earth-night">傳連結共享編輯 (自動縮短網址)</h4>
+              <p class="text-[11px] text-earth-caramel font-bold">免伺服器、產生精簡短網址傳給旅伴</p>
             </div>
           </div>
           
           <p class="text-xs text-earth-bark leading-relaxed">
-            系統會將目前行程、天數、站點與購物清單打包壓縮至網址中，傳給旅伴打開即可查看並接續編輯！
+            系統會自動過濾照片等大容量內容並精簡壓縮，產出精簡短網址，在 LINE 或通訊軟體傳送不截斷！
           </p>
 
           <div>
-            <button @click="generateAndCopyShareLink" class="w-full py-2.5 bg-ginkgo-400 hover:bg-ginkgo-500 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all">
-              <span>📋 複製完整共享連結 (傳給旅伴)</span>
+            <button 
+              @click="generateAndCopyShareLink" 
+              :disabled="isGeneratingLink"
+              class="w-full py-2.5 bg-ginkgo-400 hover:bg-ginkgo-500 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+            >
+              <span v-if="isGeneratingLink" class="animate-spin">🔄</span>
+              <span>{{ isGeneratingLink ? '縮短網址中...' : '📋 產生並複製短網址 (傳給旅伴)' }}</span>
             </button>
           </div>
 
           <div v-if="shareSuccessNotice" class="text-xs text-emerald-800 bg-emerald-100 p-2 rounded-xl text-center font-bold">
-            ✅ 共享專屬連結已複製！可直接貼在 LINE 聊天室！
+            ✅ 專屬共享短網址已複製！可直接貼在 LINE 聊天室！
           </div>
         </div>
 
@@ -568,7 +573,7 @@
         </div>
         <input type="text" v-model="newShoppingItem.store" placeholder="購買門市 (如：松本清、唐吉訶德)" class="w-full bg-earth-sand rounded-xl p-2 text-xs font-bold border border-earth-clay" />
         <div>
-          <label class="text-[11px] font-bold text-earth-caramel block mb-1">商品照片</label>
+          <label class="text-[11px] font-bold text-earth-caramel block mb-1">商品照片 (僅限本地瀏覽，不會上傳以確保快速傳送)</label>
           <input type="file" accept="image/*" @change="handleShoppingImageUpload" class="text-xs text-earth-bark" />
         </div>
         <div class="flex gap-2 pt-1">
@@ -609,6 +614,7 @@
         const showAddShoppingModal = ref(false);
         const showAddExpenseModal = ref(false);
         const shareSuccessNotice = ref(false);
+        const isGeneratingLink = ref(false);
         const lightboxImage = ref(null);
 
         const navTabs = [
@@ -779,55 +785,144 @@
           }
         };
 
+        // 超精簡化壓縮演算法 (隔離圖片，消除冗長鍵名)
         const getShareableUrl = () => {
+          const minimalDays = tripDays.value.map(d => ({
+            d: d.dateFormatted,
+            w: d.weekday,
+            t: d.title,
+            s: (d.spots || []).map(sp => [sp.name, sp.time, sp.category, sp.notes || '', sp.lat || 0, sp.lng || 0])
+          }));
+
+          const minimalShopping = shoppingList.value.map(i => [
+            i.name,
+            i.price || 0,
+            i.category || '',
+            i.store || '',
+            i.bought ? 1 : 0
+          ]);
+
+          const minimalExpenses = expenses.value.map(e => [
+            e.title,
+            e.amount || 0,
+            e.payer
+          ]);
+
           const payload = {
-            c: tripConfig.value,
-            d: dateSettings.value,
-            days: tripDays.value,
-            s: shoppingList.value,
-            e: expenses.value,
-            i: currentAppIcon.value
+            t: tripConfig.value.tripName,
+            s: dateSettings.value.startDate,
+            e: dateSettings.value.endDate,
+            i: currentAppIcon.value,
+            d: minimalDays,
+            p: minimalShopping,
+            x: minimalExpenses
           };
+
           const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
-          return `${window.location.origin}${window.location.pathname}#trip=${compressed}`;
+          return `${window.location.origin}${window.location.pathname}#t=${compressed}`;
         };
 
-        const generateAndCopyShareLink = () => {
+        // 縮短網址核心邏輯
+        const generateAndCopyShareLink = async () => {
+          isGeneratingLink.value = true;
+          const fullUrl = getShareableUrl();
+          let finalShareUrl = fullUrl;
+
           try {
-            const shareUrl = getShareableUrl();
+            // 調用公開微型短網址服務 (TinyURL 免費 API)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(fullUrl)}`, {
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              const shortUrl = await res.text();
+              if (shortUrl && shortUrl.startsWith('http')) {
+                finalShareUrl = shortUrl;
+              }
+            }
+          } catch (e) {
+            console.warn('短網址服務連線備援，改複製精簡版原連結');
+          } finally {
+            isGeneratingLink.value = false;
+          }
+
+          try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(shareUrl).then(() => {
-                shareSuccessNotice.value = true;
-                setTimeout(() => { shareSuccessNotice.value = false; }, 3500);
-              });
+              await navigator.clipboard.writeText(finalShareUrl);
             } else {
               const input = document.createElement('textarea');
-              input.value = shareUrl;
+              input.value = finalShareUrl;
               document.body.appendChild(input);
               input.select();
               document.execCommand('copy');
               document.body.removeChild(input);
-              shareSuccessNotice.value = true;
-              setTimeout(() => { shareSuccessNotice.value = false; }, 3500);
             }
+            shareSuccessNotice.value = true;
+            setTimeout(() => { shareSuccessNotice.value = false; }, 3500);
           } catch (err) {
-            prompt('請直接手動複製以下專屬共享連結：', getShareableUrl());
+            prompt('請直接複製以下專屬短連結：', finalShareUrl);
           }
         };
 
         const loadSharedDataFromUrl = () => {
-          if (window.location.hash.includes('#trip=')) {
+          const hash = window.location.hash;
+          if (hash.includes('#t=') || hash.includes('#trip=')) {
             try {
-              const compressed = window.location.hash.replace('#trip=', '');
+              const compressed = hash.includes('#t=') ? hash.replace('#t=', '') : hash.replace('#trip=', '');
               const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
               if (decompressed) {
                 const parsed = JSON.parse(decompressed);
+
+                // 解壓超精簡結構
+                if (parsed.t) tripConfig.value.tripName = parsed.t;
+                if (parsed.s && parsed.e) dateSettings.value = { startDate: parsed.s, endDate: parsed.e };
+                if (parsed.i) currentAppIcon.value = parsed.i;
+
+                if (parsed.d && Array.isArray(parsed.d)) {
+                  tripDays.value = parsed.d.map((d, dIdx) => ({
+                    id: 'd_' + Date.now() + '_' + dIdx,
+                    dateFormatted: d.d,
+                    weekday: d.w,
+                    title: d.t,
+                    spots: (d.s || []).map((sp, sIdx) => ({
+                      id: 's_' + Date.now() + '_' + sIdx,
+                      name: sp[0],
+                      time: sp[1],
+                      category: sp[2],
+                      notes: sp[3],
+                      lat: sp[4],
+                      lng: sp[5]
+                    }))
+                  }));
+                }
+
+                if (parsed.p && Array.isArray(parsed.p)) {
+                  shoppingList.value = parsed.p.map((item, pIdx) => ({
+                    id: Date.now() + pIdx,
+                    name: item[0],
+                    price: item[1],
+                    category: item[2],
+                    store: item[3],
+                    image: '',
+                    bought: item[4] === 1
+                  }));
+                }
+
+                if (parsed.x && Array.isArray(parsed.x)) {
+                  expenses.value = parsed.x.map((exp, xIdx) => ({
+                    id: Date.now() + xIdx,
+                    title: exp[0],
+                    amount: exp[1],
+                    payer: exp[2]
+                  }));
+                }
+
+                // 兼容舊版長結構
                 if (parsed.days) tripDays.value = parsed.days;
                 if (parsed.c) tripConfig.value = parsed.c;
-                if (parsed.d) dateSettings.value = parsed.d;
-                if (parsed.s) shoppingList.value = parsed.s;
-                if (parsed.e) expenses.value = parsed.e;
-                if (parsed.i) currentAppIcon.value = parsed.i;
+
                 saveAllToLocalStorage();
                 history.replaceState(null, '', window.location.pathname);
                 alert('✨ 成功載入旅伴分享的專屬行程！');
@@ -1270,7 +1365,7 @@
           animate();
         };
 
-        // 監聽天數切換，自動重設地圖焦點並重繪
+        // 監聽天數切換
         watch(activeDayIndex, () => {
           selectedSpotIndex.value = 0;
           mapMode.value = 'all';
@@ -1281,7 +1376,7 @@
           }
         });
 
-        // 深度監聽關鍵資料變更，即時儲存至本地
+        // 深度監聽自動持久化存儲
         watch([tripDays, shoppingList, expenses, tripConfig, currentAppIcon], () => {
           saveAllToLocalStorage();
         }, { deep: true });
@@ -1326,6 +1421,7 @@
           showAddShoppingModal,
           showAddExpenseModal,
           shareSuccessNotice,
+          isGeneratingLink,
           newSpot,
           newShoppingItem,
           newExpense,
